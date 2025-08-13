@@ -2,33 +2,24 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;   // <-- IMPORTANTE
-
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;  // <-- IMPORTANTE
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Atributos asignables en masa
      */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    protected $fillable = ['name','email','password','avatar'];
+    protected $appends = ['avatar_url'];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Atributos ocultos en la serialización
      */
     protected $hidden = [
         'password',
@@ -36,9 +27,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Casts
      */
     protected function casts(): array
     {
@@ -46,5 +35,21 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Accessor: URL pública del avatar
+     * - Si en BD guardas "/storage/avatars/xxx.jpg" o "storage/avatars/xxx.jpg" -> devuelve APP_URL/... listo para <img src="...">
+     * - Si ya guardas una URL http(s) -> la deja igual
+     * - Si no hay avatar -> null
+     */
+    protected function avatarUrl(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::get(function () {
+            if (empty($this->avatar)) return null;
+            $raw = ltrim((string) $this->avatar, '/');
+            if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) return $this->avatar;
+            return asset(str_starts_with($raw, 'storage/') ? $raw : 'storage/'.$raw);
+        });
     }
 }

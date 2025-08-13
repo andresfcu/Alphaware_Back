@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 class EnsureTenantRole
 {
     /**
-     * Uso: ->middleware(['auth:sanctum','tenant','role:admin']) o role:admin,manager
+     * Uso: ->middleware(['auth:sanctum','tenant','role:admin,manager'])
      */
     public function handle(Request $request, Closure $next, ...$roles)
     {
@@ -16,16 +16,18 @@ class EnsureTenantRole
         $tenantId = $request->attributes->get('tenant_id');
 
         if (!$user || !$tenantId) {
-            return response()->json(['message' => 'Tenant o usuario no resuelto'], 400);
+            return response()->json(['message' => 'No autenticado o tenant ausente'], 401);
         }
+        $activeRoleId = DB::table('user_tenant')
+        ->where('user_id', $user->id)
+        ->where('tenant_id', $tenantId)
+        ->value('active_role_id');
 
-        $role = DB::table('user_tenant')
-            ->where('user_id', $user->id)
-            ->where('tenant_id', $tenantId)
-            ->value('role');
+        if (!$activeRoleId) return response()->json(['message'=>'No autorizado'],403);
 
-        if (!$role || (!empty($roles) && !in_array($role, $roles, true))) {
-            return response()->json(['message' => 'No autorizado (rol requerido)'], 403);
+        if (!empty($roles)) {
+        $ok = DB::table('roles')->whereIn('slug',$roles)->where('id',$activeRoleId)->exists();
+        if (!$ok) return response()->json(['message'=>'No autorizado (rol requerido)'],403);
         }
 
         return $next($request);
